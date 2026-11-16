@@ -269,7 +269,7 @@ object Model {
         syncIfConfigured()
     }
 
-    fun setEmoji(on: Boolean) {
+    fun updateEmoji(on: Boolean) {
         Store(app).emoji = on
         emoji = on
         syncIfConfigured()
@@ -283,7 +283,7 @@ object Model {
         if (selection.values.any { it.isNotEmpty() }) Syncer.schedule(app)
     }
 
-    fun setNotify(on: Boolean) {
+    fun updateNotify(on: Boolean) {
         Store(app).notify = on
         notify = on
     }

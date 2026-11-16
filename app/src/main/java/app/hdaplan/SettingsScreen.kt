@@ -146,7 +146,7 @@ fun SettingsScreen(
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = Model.emoji, onCheckedChange = { Model.setEmoji(it) })
+                Switch(checked = Model.emoji, onCheckedChange = { Model.updateEmoji(it) })
                 Spacer(Modifier.width(12.dp))
                 Text("Emoji je Typ voranstellen")
             }
@@ -169,7 +169,7 @@ fun SettingsScreen(
                 }
                 Switch(
                     checked = Model.notify,
-                    onCheckedChange = { on -> if (on) onEnableNotif() else Model.setNotify(false) }
+                    onCheckedChange = { on -> if (on) onEnableNotif() else Model.updateNotify(false) }
                 )
             }
         }

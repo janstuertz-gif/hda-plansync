@@ -56,7 +56,7 @@ fun AppRoot() {
         Model.reload()
     }
     val notifPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        Model.setNotify(ok)
+        Model.updateNotify(ok)
     }
     val askCalendar: () -> Unit = {
         calPerm.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
@@ -70,7 +70,7 @@ fun AppRoot() {
         if (needsNotifPermission()) {
             notifPerm.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            Model.setNotify(true)
+            Model.updateNotify(true)
         }
     }
     // Nach dem Speichern: nur nachfragen, wenn Benachrichtigungen gewünscht sind
