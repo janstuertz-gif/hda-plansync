@@ -11,6 +11,17 @@ data class CalInfo(val id: Long, val name: String, val account: String, val prim
 /** Ein Kalendertermin, so wie die App ihn haben möchte (Zeiten in ms seit 1970). */
 data class Ev(val start: Long, val end: Long, val title: String, val loc: String, val desc: String)
 
+/** kind: 0 = neu, 1 = geändert, 2 = entfernt */
+class Change(val kind: Int, val old: Ev?, val new: Ev?)
+
+class Outcome(
+    val ins: Int,
+    val upd: Int,
+    val del: Int,
+    val hadExisting: Boolean,
+    val changes: List<Change>
+)
+
 /**
  * Schreibt, aktualisiert und löscht Termine über den Kalender-Provider des Handys.
  * Termine in einem Google-Konto werden von Android automatisch zu Google synchronisiert.
@@ -82,21 +93,21 @@ object CalendarSync {
 
     private fun uri(id: Long) = ContentUris.withAppendedId(Events.CONTENT_URI, id)
 
-    /**
-     * Gleicht die App-Termine ab [fromMs] mit [desired] (Schlüssel -> Termin) ab.
-     * Rückgabe: (neu, geändert, gelöscht).
-     */
-    fun sync(ctx: Context, calId: Long, desired: Map<String, Ev>, fromMs: Long): Triple<Int, Int, Int> {
+    /** Gleicht die App-Termine ab [fromMs] mit [desired] (Schlüssel -> Termin) ab. */
+    fun sync(ctx: Context, calId: Long, desired: Map<String, Ev>, fromMs: Long): Outcome {
         val cr = ctx.contentResolver
         val have = HashMap<String, Existing>()
+        val changes = ArrayList<Change>()
         var ins = 0
         var upd = 0
         var del = 0
 
-        for ((key, ex) in managed(ctx, calId, fromMs)) {
+        val found = managed(ctx, calId, fromMs)
+        val hadExisting = found.isNotEmpty()
+
+        for ((key, ex) in found) {
             if (have.containsKey(key)) {
                 cr.delete(uri(ex.id), null, null) // doppelt vorhanden
-                del++
             } else {
                 have[key] = ex
             }
@@ -106,18 +117,21 @@ object CalendarSync {
             if (want == null) {
                 cr.delete(uri(ex.id), null, null)
                 del++
+                changes.add(Change(2, ex.ev, null))
             } else if (norm(want) != norm(ex.ev)) {
                 cr.update(uri(ex.id), values(null, want), null, null)
                 upd++
+                changes.add(Change(1, ex.ev, want))
             }
         }
         for ((key, want) in desired) {
             if (!have.containsKey(key)) {
                 cr.insert(Events.CONTENT_URI, values(calId, want))
                 ins++
+                changes.add(Change(0, null, want))
             }
         }
-        return Triple(ins, upd, del)
+        return Outcome(ins, upd, del, hadExisting, changes)
     }
 
     /** Löscht alle von der App angelegten Termine (auch vergangene). */

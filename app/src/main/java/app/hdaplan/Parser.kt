@@ -5,9 +5,13 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
+import java.net.URI
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
+
+/** Ein Plan aus der Übersicht, z. B. "EIT (BA)", 1. Semester, Variante "EIT". */
+data class PlanLink(val url: String, val group: String, val semester: Int, val variant: String)
 
 /**
  * Liest die Wochenraster-Tabelle des Stundenplans und die verlinkte x/y-Raster-Seite,
@@ -23,6 +27,7 @@ object Parser {
     private val MARK = Regex("^([xy][12]?(?:\\s*,\\s*[xy][12]?)*)(?=\\s|$)")
     private val LABEL = Regex("[xy][12]?")
     private val WS = Regex("\\s+")
+    private val PLAN_FILE = Regex("^S_([A-Za-z0-9]+)_(BA|MA)_(\\d+)(.*)\\.htm$", RegexOption.IGNORE_CASE)
 
     private class Cell(val el: Element, val row: Int, val col: Int, val rowSpan: Int, val colSpan: Int)
     private class Ln(val text: String, val bold: String)
@@ -38,15 +43,59 @@ object Parser {
         Jsoup.connect(url).userAgent("Mozilla/5.0 (Android) h-da-plansync").timeout(20000).get()
 
     /** Lädt Plan und zugehörige Raster-Seite. Wirft IOException bei Netzwerkproblemen. */
-    fun load(url: String): Plan {
+    fun load(id: String, url: String): Plan {
         val doc = fetch(url)
         val slots = parseSlots(doc)
         val rasterUrl = doc.select("a[href*=Raster]").firstOrNull()?.absUrl("href")?.substringBefore('#') ?: ""
         val raster: Map<String, Set<LocalDate>> =
             if (rasterUrl.isEmpty()) emptyMap() else parseRaster(fetch(rasterUrl))
+        val text = doc.text()
         val stand = Regex("Aktualisierungsdatum\\D{0,6}(\\d{2}\\.\\d{2}\\.\\d{4})")
-            .find(doc.text())?.groupValues?.get(1) ?: "?"
-        return Plan(doc.title(), stand, slots, raster)
+            .find(text)?.groupValues?.get(1) ?: "?"
+        val term = Regex("Stundenplan\\s+((?:WS|SS|WiSe|SoSe)\\s*\\d{2}(?:/\\d{2})?)")
+            .find(text)?.groupValues?.get(1) ?: ""
+        val title = doc.title().ifBlank { url.substringAfterLast('/') }
+        return Plan(id, url, title, term, stand, slots, raster, System.currentTimeMillis())
+    }
+
+    // ---------- Plan-Übersicht (nur eindeutig erkennbare Pläne, sortiert) ----------
+
+    /** Sucht auf der Startseite (und ein paar Ausweichseiten) nach Plan-Links wie S_EIT_BA_1EIT.htm. */
+    fun loadIndex(anyPlanUrl: String): List<PlanLink> {
+        val root = rootOf(anyPlanUrl)
+        val dir = anyPlanUrl.substringBeforeLast('/') + "/"
+        for (c in listOf(root, root + "index.htm", root + "index.html", dir)) {
+            val links = try {
+                parseIndex(fetch(c))
+            } catch (e: Exception) {
+                emptyList()
+            }
+            if (links.isNotEmpty()) return links
+        }
+        return emptyList()
+    }
+
+    private fun rootOf(url: String): String = try {
+        val u = URI(url)
+        val port = if (u.port > 0) ":" + u.port else ""
+        u.scheme + "://" + u.host + port + "/"
+    } catch (e: Exception) {
+        "https://splan.eit.h-da.de/"
+    }
+
+    private fun parseIndex(doc: Document): List<PlanLink> {
+        val seen = HashSet<String>()
+        val out = ArrayList<PlanLink>()
+        for (a in doc.select("a[href]")) {
+            val url = a.absUrl("href").substringBefore('#')
+            val file = url.substringAfterLast('/')
+            val m = PLAN_FILE.find(file) ?: continue
+            val sem = m.groupValues[3].toIntOrNull() ?: continue
+            if (!seen.add(url)) continue
+            val variant = m.groupValues[4].trim('_', ' ').uppercase()
+            out.add(PlanLink(url, m.groupValues[1].uppercase() + " (" + m.groupValues[2].uppercase() + ")", sem, variant))
+        }
+        return out.sortedWith(compareBy<PlanLink>({ it.group }, { it.semester }, { it.variant }))
     }
 
     // ---------- x/y-Raster ----------
