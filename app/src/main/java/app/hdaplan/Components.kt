@@ -138,7 +138,7 @@ fun OccSheet(occ: Occ, onClose: () -> Unit) {
             if (s.lecturers.isNotEmpty()) InfoRow("Dozent", s.lecturers)
             if (s.code.isNotEmpty()) InfoRow("Modul", s.code)
             if (s.markers.isNotEmpty()) {
-                InfoRow("Raster", s.markers.joinToString(", ") + " – konkrete Termine legt der Dozent fest")
+                InfoRow("Raster", s.markers.joinToString("/") + "-Wochen – konkrete Termine legt der Dozent fest")
             }
             if (plan != null) InfoRow("Plan", plan.label)
             Spacer(Modifier.height(16.dp))

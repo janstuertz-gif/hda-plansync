@@ -123,6 +123,7 @@ fun WeekScreen(pad: PaddingValues, onOpen: (Occ) -> Unit) {
         if (!web) {
             WeekHeader(
                 start,
+                weekKind(Model.plans.firstNotNullOfOrNull { Model.loaded[it.id] }?.raster, start),
                 onPrev = { start = start.minusWeeks(1) },
                 onNext = { start = start.plusWeeks(1) },
                 onToday = { start = initialWeekStart() }
@@ -183,8 +184,32 @@ fun WeekScreen(pad: PaddingValues, onOpen: (Occ) -> Unit) {
     }
 }
 
+/** Hängt an die Kalenderwoche an, ob es eine x- oder y-Woche ist (aus dem x/y-Raster der Seite). */
+private fun weekKind(raster: Map<String, Set<LocalDate>>?, start: LocalDate): String {
+    if (raster == null || raster.isEmpty()) return ""
+    var x = false
+    var y = false
+    for (i in 0..6) {
+        val d = start.plusDays(i.toLong())
+        if (raster["x"]?.contains(d) == true) x = true
+        if (raster["y"]?.contains(d) == true) y = true
+    }
+    return when {
+        x && !y -> " · x-Woche"
+        y && !x -> " · y-Woche"
+        x && y -> " · x/y gemischt"
+        else -> " · vorlesungsfrei"
+    }
+}
+
 @Composable
-private fun WeekHeader(start: LocalDate, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit) {
+private fun WeekHeader(
+    start: LocalDate,
+    kind: String,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onToday: () -> Unit
+) {
     val end = start.plusDays(4)
     val kw = start.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     Row(
@@ -198,7 +223,7 @@ private fun WeekHeader(start: LocalDate, onPrev: () -> Unit, onNext: () -> Unit,
             Modifier.weight(1f).clickable(onClick = onToday),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("KW $kw", fontWeight = FontWeight.Bold)
+            Text("KW $kw$kind", fontWeight = FontWeight.Bold)
             Text(
                 start.format(DM) + " – " + end.format(DM) + end.year,
                 style = MaterialTheme.typography.bodySmall,

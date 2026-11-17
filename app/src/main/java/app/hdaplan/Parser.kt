@@ -36,7 +36,9 @@ object Parser {
         val lecturers: String,
         val rooms: String,
         val markers: List<String>,
-        val code: String
+        val code: String,
+        val orig: List<String>,
+        val no: Int
     )
 
     private fun fetch(url: String): Document =
@@ -200,14 +202,30 @@ object Parser {
             }
 
             val raw = ArrayList<Slot>()
+            val origCount = HashMap<String, Int>()
             for (c in cells) {
                 val day = dayCols[c.col] ?: continue
                 if (c.row <= head) continue
                 val t0 = times[c.row] ?: continue
                 val lastRow = (c.row + c.rowSpan - 1 downTo c.row).firstOrNull { times.containsKey(it) } ?: c.row
                 val t1 = times[lastRow] ?: t0
+                var lastNo = -1
+                var curBase = ""
+                var curOrder = 0
                 for (e in entries(c.el)) {
-                    raw.add(Slot(day, t0.first, t1.second, e.title, e.lecturers, e.rooms, e.markers, e.code, 0))
+                    if (e.no != lastNo) {
+                        // Neuer Original-Eintrag: Schlüssel-Grundlage wie vor dem Aufteilen von x/y
+                        lastNo = e.no
+                        curBase = "${day.value}|${t0.first}|${t1.second}|${e.title}|${e.orig.joinToString(",")}"
+                        curOrder = origCount[curBase] ?: 0
+                        origCount[curBase] = curOrder + 1
+                    }
+                    raw.add(
+                        Slot(
+                            day, t0.first, t1.second, e.title, e.lecturers, e.rooms, e.markers, e.code, 0,
+                            curBase, curOrder
+                        )
+                    )
                 }
             }
 
@@ -290,7 +308,10 @@ object Parser {
             }
             val rooms = ROOM.findAll(info).map { it.value }.toList()
             val code = ROOM.replace(info, " ").replace(",", " ").replace(WS, " ").trim()
-            out.add(E(ls[p].bold, lec, rooms.joinToString(", "), markers, code))
+            // "x, y" wird in zwei Einträge aufgeteilt (nur x-Wochen / nur y-Wochen), einzeln wählbar
+            val roomsText = rooms.joinToString(", ")
+            val parts: List<List<String>> = if (markers.size > 1) markers.map { listOf(it) } else listOf(markers)
+            for (part in parts) out.add(E(ls[p].bold, lec, roomsText, part, code, markers, k))
         }
         return out
     }

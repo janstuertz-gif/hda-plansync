@@ -18,6 +18,7 @@ Ab dem nächsten Update reicht es, die APK direkt über die installierte App zu 
 - **Einstellungen**: Pläne (ändern, hinzufügen, entfernen; Auswahl aus einer Liste oder per Link), Kalender, Termin-Titel, Sync-Intervall, Benachrichtigungen, Änderungsprotokoll, Diagnose, Aufräumen.
 
 ## Gut zu wissen
+- **x- und y-Wochen:** Einträge, die der Plan mit „x, y“ anbietet (z. B. Labore), sind in zwei Auswahlpunkte getrennt: „x-Wochen“ und „y-Wochen“. Bei jedem steht, wann die nächsten Termine sind; in der Wochenansicht steht, ob die Woche x oder y ist. Haken nur bei deiner Woche setzen. Eine frühere Auswahl bleibt für beide Wochen angehakt, bis du eine abwählst.
 - Die Kalendertage kommen aus dem x/y-Raster der Seite (inkl. Ferien). Bei Laboren legt der Dozent die echten Termine fest: Einzelne Tage kannst du in der Wochenansicht ausblenden.
 - Die Plan-Liste liest die Startseite von splan.eit.h-da.de aus und zeigt nur Pläne mit eindeutigem Namen (Studiengang, Abschluss, Semester), sortiert. Alles andere geht über „Link einfügen“.
 - Das Widget fügst du über langes Drücken auf dem Homescreen hinzu („h-da Plan“).

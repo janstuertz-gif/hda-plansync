@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
 
 private fun matches(q: String, s: Slot): Boolean {
     if (q.isBlank()) return true
@@ -170,7 +171,10 @@ private fun GroupCard(
     checked: Set<String>,
     onAlias: () -> Unit
 ) {
-    val sorted = slots.sortedWith(compareBy<Slot>({ it.day }, { it.start }))
+    val sorted = slots.sortedWith(
+        compareBy<Slot>({ it.day }, { it.start }, { it.markers.joinToString(",") }, { it.lecturers })
+    )
+    val today = remember { LocalDate.now() }
     val ids = sorted.map { it.id }
     val all = ids.all { checked.contains(it) }
     val type = Fmt.typeOf(title)
@@ -208,8 +212,15 @@ private fun GroupCard(
             }
             for (s in sorted) {
                 val on = checked.contains(s.id)
-                val mark = if (s.markers.isEmpty()) "" else " · Raster " + s.markers.joinToString(",")
-                val count = plan?.datesFor(s)?.size ?: 0
+                val mark = if (s.markers.isEmpty()) "" else " · " + s.markers.joinToString("/") + "-Wochen"
+                val dates = plan?.datesFor(s) ?: emptyList<LocalDate>()
+                val count = dates.size
+                // Bei x/y-Einträgen die nächsten Termine zeigen, damit man erkennt, welche Woche die eigene ist
+                val nextDates = if (s.markers.isEmpty()) {
+                    ""
+                } else {
+                    dates.filter { !it.isBefore(today) }.take(3).joinToString(", ") { it.format(DM) }
+                }
                 val who = listOf(s.lecturers, s.rooms).filter { it.isNotEmpty() }.joinToString(" · ")
                 Row(
                     Modifier
@@ -227,6 +238,13 @@ private fun GroupCard(
                         )
                         if (who.isNotEmpty()) {
                             Text(who, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (nextDates.isNotEmpty()) {
+                            Text(
+                                "nächste: " + nextDates,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }

@@ -195,6 +195,8 @@ class Store(ctx: Context) {
                     .put("m", JSONArray(s.markers))
                     .put("c", s.code)
                     .put("o", s.order)
+                    .put("kb", s.keyBase)
+                    .put("ko", s.keyOrder)
             )
         }
         o.put("slots", sl)
@@ -226,7 +228,9 @@ class Store(ctx: Context) {
                         x.getString("r"),
                         markers,
                         x.getString("c"),
-                        x.getInt("o")
+                        x.getInt("o"),
+                        x.optString("kb", ""),
+                        x.optInt("ko", 0)
                     )
                 )
             }

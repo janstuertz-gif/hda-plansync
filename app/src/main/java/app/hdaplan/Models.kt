@@ -16,7 +16,10 @@ data class Slot(
     val rooms: String,
     val markers: List<String>,
     val code: String,
-    val order: Int
+    val order: Int,
+    /** Grundlage des Kalender-Schlüssels. Bleibt beim Aufteilen von x/y-Einträgen gleich; leer = baseKey/order. */
+    val keyBase: String = "",
+    val keyOrder: Int = 0
 ) {
     /** Bleibt gleich, wenn sich nur Raum oder Dozent ändern. */
     val baseKey: String
@@ -87,21 +90,48 @@ object Matcher {
         val hit = ArrayList<Slot>()
         val miss = ArrayList<Sel>()
         for (s in sel) {
-            val cands = free[s.key]
-            if (cands == null || cands.isEmpty()) {
-                miss.add(s)
+            val direct = free[s.key]
+            if (direct != null && direct.isNotEmpty()) {
+                hit.add(take(direct, s))
                 continue
             }
-            // Bei mehreren Gruppen im selben Zeitfenster: ähnlichsten Eintrag nehmen.
-            val best = cands.maxByOrNull {
-                (if (it.lecturers == s.lecturers) 4 else 0) +
-                    (if (it.rooms == s.rooms) 2 else 0) +
-                    (if (it.order == s.order) 1 else 0)
-            }!!
-            cands.remove(best)
-            hit.add(best)
+            // Übergang von Version 2.0: ein Eintrag für "x, y" ist jetzt in je einen für x und y getrennt.
+            // Eine frühere Auswahl bleibt dann für beide Wochen angehakt.
+            var found = false
+            val cut = s.key.lastIndexOf('|')
+            if (cut > 0) {
+                val head = s.key.substring(0, cut)
+                val marks = s.key.substring(cut + 1).split(",")
+                if (marks.size > 1) {
+                    for (mk in marks) {
+                        val c = free[head + "|" + mk.trim()]
+                        if (c != null && c.isNotEmpty()) {
+                            hit.add(take(c, s))
+                            found = true
+                        }
+                    }
+                }
+            }
+            if (!found) miss.add(s)
         }
         return Pair(hit, miss)
+    }
+
+    /** Bei mehreren Gruppen im selben Zeitfenster: ähnlichsten Eintrag nehmen und aus der Liste entfernen. */
+    private fun take(cands: MutableList<Slot>, s: Sel): Slot {
+        var best = cands[0]
+        var bestScore = -1
+        for (c in cands) {
+            val score = (if (c.lecturers == s.lecturers) 4 else 0) +
+                (if (c.rooms == s.rooms) 2 else 0) +
+                (if (c.order == s.order) 1 else 0)
+            if (score > bestScore) {
+                best = c
+                bestScore = score
+            }
+        }
+        cands.remove(best)
+        return best
     }
 }
 
@@ -113,8 +143,11 @@ object Occurrences {
             .joinToString("") { "%02x".format(it) }.take(16)
 
     /** Schlüssel für die Markierung im Kalender. Für den ersten Plan identisch zur Version 1. */
-    fun keyOf(planId: String, s: Slot, d: LocalDate): String =
-        hash((if (planId == FIRST_PLAN) "" else "$planId:") + "${s.baseKey}#${s.order}@$d")
+    fun keyOf(planId: String, s: Slot, d: LocalDate): String {
+        val base = if (s.keyBase.isEmpty()) s.baseKey else s.keyBase
+        val ord = if (s.keyBase.isEmpty()) s.order else s.keyOrder
+        return hash((if (planId == FIRST_PLAN) "" else "$planId:") + "$base#$ord@$d")
+    }
 
     /** Alle Termine der gewählten Einträge (auch vergangene; ausgeblendete sind markiert). */
     fun build(
